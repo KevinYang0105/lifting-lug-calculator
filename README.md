@@ -20,14 +20,6 @@
 
 ## 截图
 
-你可以把运行后的页面截图保存到项目目录，例如：
-
-- `docs/screenshot-home.png`
-- `docs/screenshot-report.png`
-
-然后在这里展示：
-
-```md
 ## 页面截图
 
 ### 主界面
@@ -35,9 +27,7 @@
 
 ### 计算过程与结果
 ![计算结果](docs/screenshot-report.png)
-```
 
-如果你现在还没有截图，可以先保留这个章节，后续补图。
 
 ---
 
