@@ -418,6 +418,7 @@ def generate_word_report(params, results):
         ('销轴孔孔径', 'd', str(params['d']), 'mm'),
         ('销轴实际直径', 'dp', str(params['dp']), 'mm'),
         ('孔心至外边缘距离', 'R', str(params['r']), 'mm'),
+        ('圆心到底边距离', 'H', str(params['h']), 'mm'),
         ('吊耳根部宽度', 'W', str(params['w']), 'mm'),
         ('焊缝角边尺寸', 'hf', str(params['hf']), 'mm'),
     ]
@@ -524,7 +525,7 @@ def generate_word_report(params, results):
     return byte_io
 
 
-def draw_lug_diagram(W, R, d, t, t_p, theta):
+def draw_lug_diagram(W, R, H, d, t, t_p, theta):
     """绘制标准正交投影双视图（正视图 + 侧视图）"""
     # 设置画布
     fig, (ax1, ax2) = plt.subplots(
@@ -544,9 +545,11 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
     centerline = '#718096'
 
     hole_r = d / 2
-    main_height = 80  # 矩形主体高度
-    top_y = main_height  # 孔心 y 坐标
+    top_y = H  # 孔心 y 坐标
     head_radius = R
+    min_width = 2 * head_radius
+    effective_W = max(W, min_width)
+    total_height = top_y + head_radius
     # 加强板外半径（取孔径外侧一圈，约 0.7R）
     Dp_R = min(R * 0.7, R - 2) if t_p > 0 else 0
 
@@ -557,18 +560,64 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
     ax1.axis('off')
     ax1.set_facecolor(bg_color)
 
+    def get_upper_tangent_point(px, py, cx, cy, radius):
+        """返回外点到圆的上侧切点。"""
+        vx = px - cx
+        vy = py - cy
+        dist_sq = vx * vx + vy * vy
+        if dist_sq <= radius * radius:
+            return None
+
+        scale = (radius * radius) / dist_sq
+        offset = radius * math.sqrt(dist_sq - radius * radius) / dist_sq
+        cand1 = (
+            cx + scale * vx - offset * vy,
+            cy + scale * vy + offset * vx,
+        )
+        cand2 = (
+            cx + scale * vx + offset * vy,
+            cy + scale * vy - offset * vx,
+        )
+        return cand1 if cand1[1] >= cand2[1] else cand2
+
     # 主体轮廓
-    ax1.add_patch(patches.Rectangle(
-        (-W/2, 0), W, main_height,
-        linewidth=2, edgecolor=edge_color, facecolor=fill_color, alpha=0.8,
-    ))
-    ax1.add_patch(patches.Arc(
-        (0, top_y), 2 * head_radius, 2 * head_radius, theta1=0, theta2=180,
-        linewidth=2, edgecolor=edge_color,
-    ))
-    if W / 2 > head_radius:
-        ax1.plot([-W / 2, -head_radius], [top_y, top_y], color=edge_color, lw=2)
-        ax1.plot([head_radius, W / 2], [top_y, top_y], color=edge_color, lw=2)
+    if math.isclose(effective_W, min_width, rel_tol=1e-9, abs_tol=1e-9):
+        ax1.add_patch(patches.Rectangle(
+            (-effective_W / 2, 0), effective_W, top_y,
+            linewidth=2, edgecolor=edge_color, facecolor=fill_color, alpha=0.8,
+        ))
+        ax1.add_patch(patches.Arc(
+            (0, top_y), 2 * head_radius, 2 * head_radius, theta1=0, theta2=180,
+            linewidth=2, edgecolor=edge_color,
+        ))
+    else:
+        left_base = (-effective_W / 2, 0)
+        right_base = (effective_W / 2, 0)
+        left_tangent = get_upper_tangent_point(left_base[0], left_base[1], 0, top_y, head_radius)
+        right_tangent = get_upper_tangent_point(right_base[0], right_base[1], 0, top_y, head_radius)
+
+        arc_angles = [
+            math.atan2(right_tangent[1] - top_y, right_tangent[0]) +
+            (
+                math.atan2(left_tangent[1] - top_y, left_tangent[0]) -
+                math.atan2(right_tangent[1] - top_y, right_tangent[0])
+            ) * i / 120
+            for i in range(121)
+        ]
+        arc_points = [
+            (head_radius * math.cos(angle), top_y + head_radius * math.sin(angle))
+            for angle in arc_angles
+        ]
+        profile_points = [left_base, right_base, right_tangent] + arc_points[1:-1] + [left_tangent]
+        ax1.add_patch(patches.Polygon(
+            profile_points,
+            closed=True,
+            linewidth=2,
+            edgecolor=edge_color,
+            facecolor=fill_color,
+            alpha=0.8,
+            joinstyle='round',
+        ))
 
     # 加强板轮廓（虚线圆）
     if t_p > 0:
@@ -584,7 +633,7 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
     ))
 
     # 中心线
-    half_span = max(W / 2, head_radius)
+    half_span = max(effective_W / 2, head_radius)
     ax1.plot([-half_span - 12, half_span + 12], [top_y, top_y], color=centerline, linestyle='-.', lw=0.8)
     ax1.plot([0, 0], [-10, top_y + head_radius + 12], color=centerline, linestyle='-.', lw=0.8)
 
@@ -604,9 +653,16 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
              f'R={R:.0f}', color=text_color, fontsize=8)
 
     # 宽度 W
-    ax1.annotate('', xy=(-W/2, -12), xytext=(W/2, -12),
+    ax1.annotate('', xy=(-effective_W / 2, -12), xytext=(effective_W / 2, -12),
                  arrowprops=dict(arrowstyle='<->', color=dim_color, lw=1))
-    ax1.text(0, -22, f'W={W:.0f}', ha='center', color=text_color, fontsize=8)
+    ax1.text(0, -22, f'W={effective_W:.0f}', ha='center', color=text_color, fontsize=8)
+
+    # 高度 H
+    h_dim_x = -half_span - 10
+    ax1.annotate('', xy=(h_dim_x, 0), xytext=(h_dim_x, top_y),
+                 arrowprops=dict(arrowstyle='<->', color=dim_color, lw=1))
+    ax1.text(h_dim_x - 4, top_y / 2, f'H={H:.0f}', ha='right', va='center',
+             color=text_color, fontsize=8, rotation=90)
 
     # 载荷 P 矢量
     force_len = 35
@@ -628,8 +684,8 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
 
     ax1.text(0, -35, 'Front View', ha='center', color=text_color, fontsize=9, fontstyle='italic')
 
-    ax1.set_xlim(-half_span - 25, half_span + 45)
-    ax1.set_ylim(-42, top_y + head_radius + 20)
+    ax1.set_xlim(-half_span - 35, half_span + 45)
+    ax1.set_ylim(-42, total_height + 20)
 
     # ====================
     # 右侧：侧视图 (Side View)
@@ -637,8 +693,6 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
     ax2.set_aspect('equal')
     ax2.axis('off')
     ax2.set_facecolor(bg_color)
-
-    total_height = main_height + head_radius  # 包含半圆头的总高度
 
     # 主板
     ax2.add_patch(patches.Rectangle(
@@ -685,6 +739,13 @@ def draw_lug_diagram(W, R, d, t, t_p, theta):
                  arrowprops=dict(arrowstyle='<->', color=dim_color, lw=1))
     ax2.text(0, t_label_y + 4, f't={t:.0f}', ha='center',
              color=text_color, fontsize=8)
+
+    # 高度 H（与正视图共用底边与孔心投影）
+    h_side_x = side_extent + 10
+    ax2.annotate('', xy=(h_side_x, 0), xytext=(h_side_x, top_y),
+                 arrowprops=dict(arrowstyle='<->', color=dim_color, lw=1))
+    ax2.text(h_side_x + 3, top_y / 2, f'H={H:.0f}', ha='left', va='center',
+             color=text_color, fontsize=8, rotation=90)
 
     ax2.text(0, -35, 'Side View', ha='center', color=text_color, fontsize=9, fontstyle='italic')
 
@@ -745,13 +806,20 @@ with st.sidebar:
     dp = st.number_input("销轴直径 dp (mm)",         min_value=1.0, max_value=500.0, value=50.0, step=1.0,
                          help="销轴直径，通常略小于孔径")
     R  = st.number_input("孔心至边缘距离 R (mm)",    min_value=1.0, max_value=1000.0, value=75.0, step=1.0)
+    H  = st.number_input("圆心到底边距离 H (mm)",    min_value=1.0, max_value=2000.0, value=80.0, step=1.0,
+                         help="用于控制吊耳正视图与侧视图的竖向投影基准")
     hf = st.number_input("焊缝焊脚尺寸 hf (mm)",    min_value=1.0, max_value=50.0, value=12.0, step=1.0)
+    if H <= d / 2:
+        st.warning("当前 H 不大于 d/2，示意图中销轴孔可能会接近或穿过底边；该提示不影响当前强度校核。")
 
     use_custom_W = st.checkbox("自定义吊耳根部宽度 W", value=False,
                                help="不勾选则默认取 W = 2R（半圆头吊耳）")
     if use_custom_W:
-        W = st.number_input("吊耳根部宽度 W (mm)", min_value=1.0, max_value=2000.0,
-                            value=float(2 * R), step=1.0)
+        input_W = st.number_input("吊耳根部宽度 W (mm)", min_value=1.0, max_value=2000.0,
+                                  value=float(2 * R), step=1.0)
+        W = max(input_W, 2 * R)
+        if input_W < 2 * R:
+            st.warning(f"自定义 W 不得小于 2R，已按最小合法值 **{W:.0f} mm** 自动修正。")
     else:
         W = 2 * R
         st.info(f"W = 2R = **{W:.0f} mm**")
@@ -821,7 +889,7 @@ with col_diagram:
         unsafe_allow_html=True,
     )
     try:
-        fig_preview = draw_lug_diagram(W, R, d, t, t_p, theta)
+        fig_preview = draw_lug_diagram(W, R, H, d, t, t_p, theta)
         st.pyplot(fig_preview, use_container_width=True)
         plt.close(fig_preview)
     except Exception as e:
@@ -920,7 +988,7 @@ with col_btn:
     # 准备导出数据
     params_dict = {
         'fv_ton': fv_ton, 'fv': fv, 'kd': kd, 'theta': theta,
-        't': t, 'tp': t_p, 'd': d, 'dp': dp, 'r': R, 'w': W,
+        't': t, 'tp': t_p, 'd': d, 'dp': dp, 'r': R, 'h': H, 'w': W,
         'hf': hf, 'fy': fy, 'fu': fu, 'ns': ns
     }
     if "error" not in results:
@@ -950,6 +1018,7 @@ with st.expander("展开查看完整计算过程（可截图存档）", expanded
 | 销轴孔孔径 | $d$ | {d} | mm |
 | 销轴直径 | $d_p$ | {dp} | mm |
 | 孔心至边缘距离 | $R$ | {R} | mm |
+| 圆心到底边距离 | $H$ | {H} | mm |
 | 角焊缝焊脚 | $h_f$ | {hf} | mm |
 | 吊耳根部宽度 | $W$ | {W:.1f} | mm |
 """)
