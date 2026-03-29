@@ -212,7 +212,3 @@ py -m unittest discover -s tests -v
 
 ## License
 
-如果你准备开源，可以补充一个许可证，例如 MIT。
-
-如果暂时不确定，可以先保留此项，后续再添加。
-
