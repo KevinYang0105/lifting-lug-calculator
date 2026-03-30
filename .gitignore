@@ -10,6 +10,7 @@ env/
 .env
 
 .streamlit/secrets.toml
+.workbuddy/
 
 .DS_Store
 Thumbs.db
