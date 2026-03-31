@@ -1,4 +1,4 @@
-__pycache__/
+﻿__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -14,3 +14,6 @@ env/
 
 .DS_Store
 Thumbs.db
+
+.tmp_test/
+
