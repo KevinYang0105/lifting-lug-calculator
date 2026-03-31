@@ -1,4 +1,4 @@
-# 吊耳计算器
+﻿# 吊耳计算器
 
 一个基于 Streamlit 的吊耳应力校核工具，用于对吊耳的关键受力指标进行快速计算、结果展示与 Word 计算书导出。
 
@@ -20,14 +20,11 @@
 
 ## 截图
 
-## 页面截图
-
 ### 主界面
 ![主界面](docs/screenshot-home.png)
 
-### 计算过程与结果
+### 计算结果
 ![计算结果](docs/screenshot-report.png)
-
 
 ---
 
@@ -49,6 +46,14 @@ python -m pip install -r requirements.txt
 
 ## 启动方式
 
+推荐入口：
+
+```bash
+python -m streamlit run main.py
+```
+
+兼容旧入口：
+
 ```bash
 python -m streamlit run app.py
 ```
@@ -63,29 +68,14 @@ http://localhost:8501
 
 ## Windows 双击启动
 
-本项目提供了一个本地脚本版的 Windows 双击启动方案，适合在自己的电脑上快速打开程序。
+本项目提供了本地脚本版的 Windows 双击启动方案。
 
 可用入口：
 
-- `start_app.bat`：标准启动脚本
-- `launch_hidden.vbs`：更安静的启动方式，双击时会尽量减少命令行窗口干扰
+- `start_app.bat`
+- `launch_hidden.vbs`
 
-使用方式：
-
-1. 首次使用前先安装 Python 和项目依赖
-2. 双击 `start_app.bat` 或 `launch_hidden.vbs`
-3. 程序会尝试自动打开浏览器并访问 `http://localhost:8501`
-
-脚本会做一些基础检查：
-
-- Python 是否可用
-- `streamlit` 是否已安装
-- `8501` 端口是否已被占用
-
-注意：
-
-- 这只是本地脚本启动方案，不是独立安装包
-- 如果后续要正式分发给更多用户，建议再升级为 `.exe` 或安装包方案
+脚本内部已切换为启动 `main.py`。
 
 ---
 
@@ -126,8 +116,6 @@ http://localhost:8501
 
 - `W = 2R`
 
-也可以启用自定义宽度。
-
 ### 4. 查看结果
 
 程序会展示：
@@ -144,47 +132,12 @@ http://localhost:8501
 
 ---
 
-## 参数说明
-
-| 参数 | 含义 | 单位 |
-|------|------|------|
-| `Fv` | 单只吊耳受力 | t |
-| `Kd` | 动载系数 | - |
-| `θ` | 吊索与水平面夹角 | ° |
-| `Fy` | 材料屈服强度 | MPa |
-| `Fu` | 材料抗拉强度 | MPa |
-| `Ns` | 结构安全系数 | - |
-| `t` | 吊耳主板厚度 | mm |
-| `tp` | 单侧加强板厚度 | mm |
-| `d` | 销轴孔孔径 | mm |
-| `dp` | 销轴直径 | mm |
-| `R` | 孔心至边缘距离 | mm |
-| `H` | 圆心到底边距离 | mm |
-| `hf` | 焊缝焊脚尺寸 | mm |
-| `W` | 吊耳根部宽度 | mm |
-
----
-
-## 当前实现说明
-
-当前版本主要面向：
-
-- 快速试算
-- 尺寸敏感性分析
-- 工程讨论中的初步校核
-
-程序目前采用的是简化工程校核逻辑，并不等同于完整规范条文逐条展开的正式设计计算流程。
-
-如果用于正式项目，请结合适用标准、具体工况、制造要求及专业审核进行复核。
-
----
-
 ## 测试
 
-运行最小回归测试：
+运行测试：
 
 ```bash
-py -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
 ---
@@ -193,24 +146,38 @@ py -m unittest discover -s tests -v
 
 ```text
 .
-├─ app.py
-├─ requirements.txt
-├─ README.md
+├─ app.py                         # 兼容旧入口，转发到 main.py
+├─ main.py                        # 推荐 Streamlit 入口
+├─ lifting_lug_calculator/
+│  ├─ core/                       # 计算核心、常量与数据模型
+│  ├─ reporting/                  # Word 计算书生成
+│  ├─ visualization/              # 吊耳示意图绘制
+│  └─ ui/                         # Streamlit 页面与展示逻辑
 ├─ tests/
-│  └─ test_calculate_lug_stresses.py
-└─ .gitignore
+│  ├─ test_calculate_lug_stresses.py
+│  └─ test_module_exports.py
+├─ docs/
+├─ requirements.txt
+└─ README.md
 ```
+
+---
+
+## 当前实现说明
+
+当前版本仍采用简化工程校核逻辑，适合快速试算、尺寸敏感性分析和工程讨论中的初步校核。
+
+如果用于正式项目，请结合适用标准、具体工况、制造要求及专业审核进行复核。
 
 ---
 
 ## 后续计划
 
-可考虑逐步完善以下内容：
+可继续完善：
 
-- 进一步拆分计算逻辑与界面逻辑
 - 增加更多边界条件测试
 - 补充标准依据说明
-- 增加示例工况与截图
+- 增加示例工况
 - 优化导出报告格式
 
 ---
@@ -218,17 +185,3 @@ py -m unittest discover -s tests -v
 ## 免责声明
 
 本项目仅供学习、演示、参数试算与工程参考使用。
-
-- 不构成正式设计文件
-- 不替代规范计算书
-- 不替代第三方审查
-- 不替代持证工程师判断
-
-因使用本工具而产生的任何直接或间接后果，使用者需自行承担责任。
-
-在实际工程应用中，请务必结合项目条件、适用规范、制造工艺、焊接要求、载荷工况及专业工程师审核结果综合判断。
-
----
-
-## License
-

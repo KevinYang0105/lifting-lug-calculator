@@ -1,28 +1,6 @@
-import ast
-import math
-import unittest
-from pathlib import Path
+﻿import unittest
 
-
-def load_calculator_symbols():
-    source = Path("app.py").read_text(encoding="utf-8")
-    module = ast.parse(source, filename="app.py")
-
-    selected_nodes = []
-    for node in module.body:
-        if isinstance(node, ast.Assign):
-            if any(isinstance(target, ast.Name) and target.id == "ALLOWABLE_RULES" for target in node.targets):
-                selected_nodes.append(node)
-        elif isinstance(node, ast.FunctionDef) and node.name == "calculate_lug_stresses":
-            selected_nodes.append(node)
-
-    subset = ast.Module(body=selected_nodes, type_ignores=[])
-    namespace = {"math": math}
-    exec(compile(subset, "app_subset", "exec"), namespace)
-    return namespace["ALLOWABLE_RULES"], namespace["calculate_lug_stresses"]
-
-
-ALLOWABLE_RULES, calculate_lug_stresses = load_calculator_symbols()
+from lifting_lug_calculator.core import ALLOWABLE_RULES, calculate_lug_stresses
 
 
 class CalculateLugStressesTests(unittest.TestCase):

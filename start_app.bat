@@ -17,7 +17,7 @@ call :check_streamlit
 if errorlevel 1 goto :end
 
 echo Starting app from "%APP_DIR%"
-start "" %PYTHON_CMD% -m streamlit run app.py --server.headless true --server.port %APP_PORT%
+start "" %PYTHON_CMD% -m streamlit run main.py --server.headless true --server.port %APP_PORT%
 
 timeout /t 3 /nobreak >nul
 start "" "%APP_URL%"
